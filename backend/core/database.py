@@ -1,2 +1,9 @@
-# Kết nối cơ sở dữ liệu lưu lịch sử chat (SQLAlchemy/SQLite/Postgres...)
-# Sẽ hoàn thiện khi xây dựng tính năng quản lý user và lịch sử chat.
+from pymongo import MongoClient
+from core.config import settings
+
+# Khởi tạo kết nối tới MongoDB
+# (Tham số kết nối sẽ được tự động cấu hình từ biến môi trường MONGODB_URI)
+client = MongoClient(settings.MONGODB_URI)
+
+# Lấy Database mặc định (tự động trích xuất từ URI, ví dụ: .../dental_db thì tên DB sẽ là dental_db)
+db = client.get_default_database(default="dental_db")
