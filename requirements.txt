@@ -2,3 +2,4 @@ fastapi==0.139.0
 uvicorn==0.49.0
 python-multipart==0.0.32
 pymongo==4.17.0
+qdrant-client==1.18.0

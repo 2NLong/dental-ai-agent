@@ -19,3 +19,7 @@ __pycache__/
 
 # Local guides
 venv_guide.md
+
+# Qdrant Local Storage
+qdrant_storage/
+
