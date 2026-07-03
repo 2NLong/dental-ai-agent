@@ -12,8 +12,8 @@ if backend_dir not in sys.path:
 
 from core.vector_db import qdrant_client, qdrant_vector_store, COLLECTION_NAME
 from qdrant_client.models import Distance, VectorParams
-from langchain_community.document_loaders import PyPDFLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from ingestion.loaders import get_pdf_loader
+from ingestion.splitters import get_text_splitter
 
 def init_qdrant_collection():
     """Khởi tạo collection trên Qdrant nếu chưa tồn tại với cấu hình vector 1024 chiều (BGE-M3)."""
@@ -34,7 +34,13 @@ def init_qdrant_collection():
         print(f"Lỗi khi kết nối hoặc khởi tạo collection Qdrant: {e}")
         raise e
 
-def run_ingestion_pipeline(pdf_folder_path: str):
+def run_ingestion_pipeline(
+    pdf_folder_path: str,
+    loader_method: str = "pypdf",
+    splitter_method: str = "recursive",
+    chunk_size: int = 1000,
+    chunk_overlap: int = 200
+):
     """Quy trình toàn diện từ việc tìm file PDF gốc tới khi nạp thành công vào Vector DB bằng LangChain."""
     if not os.path.exists(pdf_folder_path):
         print(f"Thư mục tài liệu {pdf_folder_path} không tồn tại.")
@@ -42,21 +48,22 @@ def run_ingestion_pipeline(pdf_folder_path: str):
         
     init_qdrant_collection()
     
-    # Khởi tạo bộ chia văn bản của LangChain
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,
-        chunk_overlap=200,
-        separators=["\n\n", "\n", ". ", " ", ""]
+    # Khởi tạo bộ chia văn bản từ mô-đun splitters
+    text_splitter = get_text_splitter(
+        method=splitter_method,
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap
     )
     
     for file_name in os.listdir(pdf_folder_path):
         if file_name.endswith(".pdf"):
             file_path = os.path.join(pdf_folder_path, file_name)
-            print(f"\n=== ĐANG XỬ LÝ (LANGCHAIN): {file_name} ===")
+            print(f"\n=== ĐANG XỬ LÝ (MÔ-ĐUN HÓA): {file_name} ===")
+            print(f"Loader: {loader_method} | Splitter: {splitter_method} (size={chunk_size}, overlap={chunk_overlap})")
             
             try:
-                # 1. Trích xuất text và tạo Document bằng PyPDFLoader
-                loader = PyPDFLoader(file_path)
+                # 1. Trích xuất text sử dụng loader được chọn từ mô-đun loaders
+                loader = get_pdf_loader(file_path, method=loader_method)
                 documents = loader.load()
                 if not documents:
                     print(f"Bỏ qua file {file_name} vì không trích xuất được nội dung text.")
@@ -90,5 +97,13 @@ def run_ingestion_pipeline(pdf_folder_path: str):
 
 if __name__ == "__main__":
     raw_pdfs_path = os.path.join(backend_dir, "data", "raw_pdfs")
-    run_ingestion_pipeline(raw_pdfs_path)
+    
+    # Bạn có thể dễ dàng thay đổi cấu hình nạp tại đây để thử nghiệm
+    run_ingestion_pipeline(
+        pdf_folder_path=raw_pdfs_path,
+        loader_method="pypdf",
+        splitter_method="recursive",
+        chunk_size=1000,
+        chunk_overlap=200
+    )
 
