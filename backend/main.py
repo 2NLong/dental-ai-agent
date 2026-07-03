@@ -1,6 +1,9 @@
+# Import pyarrow đầu tiên để tránh lỗi tranh chấp DLL (Segmentation fault) với PyTorch CUDA trên Windows
+import pyarrow
 from fastapi import FastAPI
 from core.config import settings
 from app.api.router import main_router
+
 
 app = FastAPI(
     title=settings.PROJECT_NAME,

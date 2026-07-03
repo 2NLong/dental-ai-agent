@@ -1,30 +1,94 @@
+# Import pyarrow đầu tiên để tránh lỗi tranh chấp DLL (Segmentation fault) với PyTorch CUDA trên Windows
+import pyarrow
 import os
-from ingestion.parser import parse_pdf
-from ingestion.splitter import split_text
-from ingestion.embedder import embed_chunks
+import uuid
+import sys
+
+# Thêm thư mục gốc của backend vào sys.path để import dễ dàng khi chạy file độc lập
+current_dir = os.path.dirname(os.path.abspath(__file__))
+backend_dir = os.path.dirname(current_dir)
+if backend_dir not in sys.path:
+    sys.path.append(backend_dir)
+
+from core.vector_db import qdrant_client, qdrant_vector_store, COLLECTION_NAME
+from qdrant_client.models import Distance, VectorParams
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+def init_qdrant_collection():
+    """Khởi tạo collection trên Qdrant nếu chưa tồn tại với cấu hình vector 1024 chiều (BGE-M3)."""
+    try:
+        collections = qdrant_client.get_collections().collections
+        exists = any(c.name == COLLECTION_NAME for c in collections)
+        
+        if not exists:
+            print(f"Collection '{COLLECTION_NAME}' chưa tồn tại. Tiến hành tạo mới...")
+            qdrant_client.create_collection(
+                collection_name=COLLECTION_NAME,
+                vectors_config=VectorParams(size=1024, distance=Distance.COSINE),
+            )
+            print(f"Đã tạo thành công collection '{COLLECTION_NAME}'!")
+        else:
+            print(f"Collection '{COLLECTION_NAME}' đã tồn tại.")
+    except Exception as e:
+        print(f"Lỗi khi kết nối hoặc khởi tạo collection Qdrant: {e}")
+        raise e
 
 def run_ingestion_pipeline(pdf_folder_path: str):
-    """Quy trình toàn diện từ việc tìm file PDF gốc tới khi nạp thành công vào Vector DB."""
+    """Quy trình toàn diện từ việc tìm file PDF gốc tới khi nạp thành công vào Vector DB bằng LangChain."""
     if not os.path.exists(pdf_folder_path):
         print(f"Thư mục tài liệu {pdf_folder_path} không tồn tại.")
         return
         
+    init_qdrant_collection()
+    
+    # Khởi tạo bộ chia văn bản của LangChain
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1000,
+        chunk_overlap=200,
+        separators=["\n\n", "\n", ". ", " ", ""]
+    )
+    
     for file_name in os.listdir(pdf_folder_path):
         if file_name.endswith(".pdf"):
             file_path = os.path.join(pdf_folder_path, file_name)
+            print(f"\n=== ĐANG XỬ LÝ (LANGCHAIN): {file_name} ===")
             
-            # 1. Trích xuất text
-            text = parse_pdf(file_path)
-            
-            # 2. Cắt nhỏ text (Chunking)
-            chunks = split_text(text)
-            
-            # 3. Tạo vector embeddings
-            vectors = embed_chunks(chunks)
-            
-            # 4. Lưu vào Vector Database (sử dụng core/vector_db.py)
-            print(f"Đã nạp thành công tài liệu: {file_name}")
+            try:
+                # 1. Trích xuất text và tạo Document bằng PyPDFLoader
+                loader = PyPDFLoader(file_path)
+                documents = loader.load()
+                if not documents:
+                    print(f"Bỏ qua file {file_name} vì không trích xuất được nội dung text.")
+                    continue
+                    
+                # 2. Cắt nhỏ tài liệu
+                split_docs = text_splitter.split_documents(documents)
+                # Lọc bỏ các chunk trống hoặc quá ngắn (dưới 10 ký tự)
+                split_docs = [doc for doc in split_docs if len(doc.page_content.strip()) > 10]
+                print(f"Đã phân cắt thành {len(split_docs)} chunks hợp lệ.")
+                if not split_docs:
+                    continue
+                
+                # 3. Tạo ID UUID v5 theo nội dung để tránh trùng lặp dữ liệu (Idempotent upsert)
+                ids = []
+                for doc in split_docs:
+                    point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, doc.page_content))
+                    ids.append(point_id)
+                    
+                # 4. Lưu vào Qdrant Vector Store
+                print(f"Đang tạo embeddings và lưu {len(split_docs)} chunks vào Qdrant...")
+                batch_size = 100
+                for j in range(0, len(split_docs), batch_size):
+                    qdrant_vector_store.add_documents(
+                        documents=split_docs[j:j + batch_size],
+                        ids=ids[j:j + batch_size]
+                    )
+                print(f"Nạp thành công tài liệu: {file_name}")
+            except Exception as e:
+                print(f"Lỗi khi xử lý file {file_name}: {e}")
 
 if __name__ == "__main__":
-    # Điểm chạy thử độc lập cho pipeline nạp dữ liệu
-    run_ingestion_pipeline("backend/data/raw_pdfs")
+    raw_pdfs_path = os.path.join(backend_dir, "data", "raw_pdfs")
+    run_ingestion_pipeline(raw_pdfs_path)
+

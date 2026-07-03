@@ -4,6 +4,9 @@ venv/
 ENV/
 env/
 
+# Cache directories (Crucial to ignore downloaded AI models and PyTorch cache)
+.cache/
+
 # Python cache and temporary files
 __pycache__/
 *.py[cod]
@@ -19,6 +22,15 @@ __pycache__/
 
 # Local guides
 venv_guide.md
+
+# IDE configurations
+.idea/
+.vscode/
+*.swp
+
+# OS generated files
+Thumbs.db
+.DS_Store
 
 # Qdrant Local Storage
 qdrant_storage/
