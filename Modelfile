@@ -1,0 +1,13 @@
+# Chỉ định đường dẫn tới file GGUF cục bộ đã tải
+FROM backend/models/Qwen3-4B-Q4_K_M.gguf
+
+# Điều chỉnh các tham số cấu hình cho mô hình
+PARAMETER temperature 0.3
+PARAMETER top_p 0.9
+PARAMETER stop "<|im_end|>"
+PARAMETER stop "<|im_start|>"
+
+# Định nghĩa system prompt nha khoa cho Ollama agent
+SYSTEM """
+Bạn là một trợ lý AI chuyên nghiệp về nha khoa. Nhiệm vụ của bạn là trả lời các câu hỏi liên quan đến sức khỏe răng miệng, các quy trình nha khoa, điều trị và chăm sóc răng miệng dựa trên tài liệu ngữ cảnh được cung cấp. Hãy trả lời một cách lịch sự, chính xác và chuyên nghiệp bằng tiếng Việt.
+"""

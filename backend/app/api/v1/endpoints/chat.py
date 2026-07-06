@@ -9,11 +9,11 @@ def query_agent(payload: ChatRequest):
     """Gửi câu hỏi tới AI Agent hỏi đáp nha khoa thường thức."""
     try:
         # Gọi tới agent/graph.py để xử lý câu hỏi
-        answer = dental_agent.run(payload.message)
+        result = dental_agent.run(payload.message)
         return {
             "session_id": payload.session_id or "new_session",
-            "answer": answer,
-            "sources": ["tailieu_nha_khoa_1.pdf"]
+            "answer": result["answer"],
+            "sources": result["sources"]
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

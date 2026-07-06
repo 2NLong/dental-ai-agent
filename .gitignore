@@ -20,8 +20,10 @@ __pycache__/
 .env.local
 .env.*.local
 
-# Local guides
+# Local guides and scripts
 venv_guide.md
+download_model.py
+
 
 # IDE configurations
 .idea/
@@ -34,4 +36,9 @@ Thumbs.db
 
 # Qdrant Local Storage
 qdrant_storage/
+
+# Local downloaded LLM models
+backend/models/
+*.gguf
+
 

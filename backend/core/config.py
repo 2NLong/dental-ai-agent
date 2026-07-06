@@ -19,6 +19,8 @@ class Settings:
     MONGODB_URI: str = os.getenv("MONGODB_URI", "mongodb://localhost:27017/dental_db")
     QDRANT_URL: str = os.getenv("QDRANT_URL", "http://localhost:6333")
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
+    OLLAMA_URL: str = os.getenv("OLLAMA_URL", "http://localhost:11434")
+    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "qwen3-dental")
 
 
 settings = Settings()
