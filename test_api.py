@@ -6,7 +6,7 @@ url = "http://127.0.0.1:8000/api/v1/chat/query"
 
 # Các câu hỏi mẫu để test
 questions = [
-    "Hướng dẫn nhổ răng số 8 tại nhà"
+    "cách sử dụng chỉ nha khoa đúng cách"
 ]
 
 for idx, q in enumerate(questions):
@@ -18,7 +18,7 @@ for idx, q in enumerate(questions):
     }
     
     try:
-        response = requests.post(url, json=payload, timeout=45)
+        response = requests.post(url, json=payload, timeout=120)
         if response.status_code == 200:
             res_data = response.json()
             print("\n-> CAU TRA LOI CUA AI AGENT:")

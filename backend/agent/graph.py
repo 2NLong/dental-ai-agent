@@ -38,7 +38,7 @@ Câu hỏi của người dùng: {user_question}
                 "stream": False
             }
             
-            response = requests.post(self.ollama_url, json=payload, timeout=30)
+            response = requests.post(self.ollama_url, json=payload, timeout=120)
             if response.status_code == 200:
                 result = response.json()
                 answer = result.get("message", {}).get("content", "").strip()
