@@ -53,7 +53,8 @@ def run_ingestion_pipeline(
     text_splitter = get_text_splitter(
         method=splitter_method,
         chunk_size=chunk_size,
-        chunk_overlap=chunk_overlap
+        chunk_overlap=chunk_overlap,
+        embeddings=embeddings
     )
     
     for file_name in os.listdir(pdf_folder_path):
@@ -112,7 +113,8 @@ def export_ingestion_to_json(
     text_splitter = get_text_splitter(
         method=splitter_method,
         chunk_size=chunk_size,
-        chunk_overlap=chunk_overlap
+        chunk_overlap=chunk_overlap,
+        embeddings=embeddings
     )
     
     all_points = []
