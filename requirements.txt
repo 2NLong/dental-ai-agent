@@ -12,12 +12,9 @@ langchain-huggingface
 langchain-qdrant
 sentence-transformers
 pymupdf
-easyocr
+unstructured[pdf]
+unstructured-inference
 langchain-experimental
 pyarrow
 requests
-
-
-
-
-
+easyocr==1.7.1
