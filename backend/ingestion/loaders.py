@@ -87,10 +87,9 @@ class EasyOCRPDFLoader:
                     # Tăng độ phân giải trang (zoom=2 ~144 DPI) để cải thiện độ chính xác OCR
                     zoom = 2
                     mat = fitz.Matrix(zoom, zoom)
-                    pix = page.get_pixmap(matrix=mat)
+                    pix = page.get_pixmap(matrix=mat, colorspace=fitz.csRGB)
                     
-                    png_bytes = pix.tobytes("png")
-                    img = Image.open(io.BytesIO(png_bytes))
+                    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
                     img_np = np.array(img)
                     text_list = reader.readtext(img_np, detail=0)
                     page_text = " ".join(text_list)
