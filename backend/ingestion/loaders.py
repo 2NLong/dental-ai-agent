@@ -94,19 +94,20 @@ class EasyOCRPDFLoader:
                     img_np = np.array(img)
                     text_list = reader.readtext(img_np, detail=0)
                     page_text = " ".join(text_list)
-                    documents.append(
-                        Document(
-                            page_content=page_text,
-                            metadata={"source": self.file_path, "page": page_idx}
+                    if page_text.strip():
+                        documents.append(
+                            Document(
+                                page_content=page_text,
+                                metadata={"source": self.file_path, "page": page_idx}
+                            )
                         )
-                    )
             return documents
         except Exception as e:
             print(f"[EasyOCR] Lỗi nghiêm trọng khi đọc file {self.file_path} qua EasyOCR: {e}")
             return []
 
 
-def get_pdf_loader(file_path: str, method: str = "unstructured"):
+def get_pdf_loader(file_path: str, method: str = "pymupdf"):
     """
     Trả về đối tượng loader tương ứng với phương pháp được chọn.
     
