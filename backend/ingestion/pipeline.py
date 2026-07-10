@@ -37,7 +37,7 @@ def init_qdrant_collection():
 
 def run_ingestion_pipeline(
     pdf_folder_path: str,
-    loader_method: str = "pymupdf",
+    loader_method: str = "easyocr",
     splitter_method: str = "recursive",
     chunk_size: int = 1000,
     chunk_overlap: int = 200
@@ -100,7 +100,7 @@ def run_ingestion_pipeline(
 def export_ingestion_to_json(
     pdf_folder_path: str,
     output_json_path: str,
-    loader_method: str = "pymupdf",
+    loader_method: str = "easyocr",
     splitter_method: str = "recursive",
     chunk_size: int = 1000,
     chunk_overlap: int = 200
@@ -205,7 +205,7 @@ if __name__ == "__main__":
     # 1. Chạy ingestion pipeline trực tiếp thông thường:
     run_ingestion_pipeline(
         pdf_folder_path=raw_pdfs_path,
-        loader_method="pymupdf",
+        loader_method="easyocr",
         splitter_method="recursive",
         chunk_size=1000,
         chunk_overlap=200

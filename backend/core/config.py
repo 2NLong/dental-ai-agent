@@ -21,6 +21,8 @@ class Settings:
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
     OLLAMA_URL: str = os.getenv("OLLAMA_URL", "http://localhost:11434")
     OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "qwen3-dental")
+    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "ollama")  # "ollama" hoặc "gemini"
+    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
 
 
 settings = Settings()

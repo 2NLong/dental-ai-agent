@@ -1,16 +1,16 @@
-import requests
 from agent.state import AgentState
 from agent.prompts import DENTAL_SYSTEM_PROMPT
 from agent.tools import search_dental_pdf
-from core.config import settings
+from core.llm_providers import get_llm_provider
+
 
 class DentalAgent:
     """Quy trình điều hướng câu hỏi và suy nghĩ của AI Agent nha khoa (RAG)."""
     
     def __init__(self):
         self.system_prompt = DENTAL_SYSTEM_PROMPT
-        self.ollama_url = f"{settings.OLLAMA_URL}/api/chat"
-        self.model_name = settings.OLLAMA_MODEL
+        # Khởi tạo LLM Provider linh hoạt thông qua Factory
+        self.llm_provider = get_llm_provider()
         
     def run(self, user_question: str) -> dict:
         # Bước 1: Gọi retriever tool để tìm tài liệu PDF nha khoa và danh sách nguồn
@@ -27,36 +27,22 @@ Dựa trên tài liệu ngữ cảnh trên, hãy trả lời câu hỏi sau củ
 Câu hỏi của người dùng: {user_question}
 """
         
-        # Bước 3: Gửi yêu cầu tới Ollama
+        # Bước 3: Gửi yêu cầu tới nhà cung cấp LLM đã chọn
         try:
-            payload = {
-                "model": self.model_name,
-                "messages": [
-                    {"role": "system", "content": self.system_prompt},
-                    {"role": "user", "content": prompt}
-                ],
-                "stream": False
-            }
-            
-            response = requests.post(self.ollama_url, json=payload, timeout=120)
-            if response.status_code == 200:
-                result = response.json()
-                answer = result.get("message", {}).get("content", "").strip()
-                return {
-                    "answer": answer,
-                    "sources": sources
-                }
-            else:
-                return {
-                    "answer": f"Lỗi từ Ollama API (Status {response.status_code}): {response.text}",
-                    "sources": []
-                }
-        except requests.exceptions.RequestException as e:
-            # Fallback nếu Ollama chưa được bật
+            answer = self.llm_provider.generate_response(
+                system_prompt=self.system_prompt,
+                user_prompt=prompt
+            )
             return {
-                "answer": f"Không thể kết nối đến Ollama server tại {settings.OLLAMA_URL}. Vui lòng đảm bảo dịch vụ Ollama đang chạy.\nChi tiết lỗi: {e}",
+                "answer": answer,
                 "sources": sources
             }
+        except Exception as e:
+            return {
+                "answer": f"Lỗi xảy ra khi xử lý phản hồi từ LLM Provider: {e}",
+                "sources": sources
+            }
+
 
 # Khởi tạo instance của Agent để sử dụng chung
 dental_agent = DentalAgent()
