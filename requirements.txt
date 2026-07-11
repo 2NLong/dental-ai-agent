@@ -4,7 +4,7 @@ python-multipart==0.0.32
 pymongo==4.17.0
 qdrant-client==1.18.0
 pypdf==4.2.0
-transformers==4.45.0
+transformers
 torch
 langchain
 langchain-community
@@ -12,10 +12,10 @@ langchain-huggingface
 langchain-qdrant
 sentence-transformers
 pymupdf
-easyocr
 langchain-experimental
 pyarrow
 requests
+docling
 
 
 

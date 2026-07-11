@@ -1,8 +1,16 @@
+import os
+import sys
+
+# Configure cache directories at the absolute top of the file
+current_dir = os.path.dirname(os.path.abspath(__file__))
+backend_dir = os.path.dirname(current_dir)
+project_root = os.path.dirname(backend_dir)
+os.environ["HF_HOME"] = os.path.join(project_root, ".cache", "huggingface")
+os.environ["TORCH_HOME"] = os.path.join(project_root, ".cache", "torch")
+
 # Import pyarrow đầu tiên để tránh lỗi tranh chấp DLL (Segmentation fault) với PyTorch CUDA trên Windows
 import pyarrow
-import os
 import uuid
-import sys
 import json
 
 # Thêm thư mục gốc của backend vào sys.path để import dễ dàng khi chạy file độc lập

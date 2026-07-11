@@ -9,4 +9,9 @@ services:
       - "6334:6334" # gRPC API
     volumes:
       - ./qdrant_storage:/qdrant/storage:z
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     restart: always

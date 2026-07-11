@@ -1,98 +1,67 @@
 import os
+
+# Configure Docling and PyTorch cache directories at the absolute top of the file
+# to ensure downstream packages (like langchain, huggingface_hub, transformers) read them first.
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_dir = os.path.dirname(os.path.dirname(current_dir))
+cache_dir = os.path.join(project_dir, ".cache")
+
+os.environ["HF_HOME"] = os.path.join(cache_dir, "huggingface")
+os.environ["TORCH_HOME"] = os.path.join(cache_dir, "torch")
+
+import pyarrow  # Import pyarrow first to avoid DLL conflict crash on Windows
 import io
 import re
 import urllib.request
 import zipfile
 import fitz  # PyMuPDF
-import easyocr
 import numpy as np
 from PIL import Image
 from langchain_core.documents import Document
 from langchain_community.document_loaders import PyPDFLoader
 
+# Global cached instance of DocumentConverter to avoid reloading models on every file load
+_converter = None
+
+def get_docling_converter():
+    """Lazily initializes and returns the shared DocumentConverter with CUDA support."""
+    global _converter
+    if _converter is None:
+        print("[FallbackOCR] Khởi tạo IBM Docling với cấu hình GPU...")
+        try:
+            from docling.datamodel.accelerator_options import AcceleratorDevice, AcceleratorOptions
+            from docling.datamodel.pipeline_options import PdfPipelineOptions
+            from docling.document_converter import DocumentConverter, PdfFormatOption
+            from docling.datamodel.base_models import InputFormat
+            from docling.backend.pypdfium2_backend import PyPdfiumDocumentBackend
+            
+            pipeline_options = PdfPipelineOptions()
+            pipeline_options.accelerator_options = AcceleratorOptions(device=AcceleratorDevice.CUDA)
+            
+            # Initialize DocumentConverter with format_options and PyPdfiumDocumentBackend
+            _converter = DocumentConverter(
+                format_options={
+                    InputFormat.PDF: PdfFormatOption(
+                        pipeline_options=pipeline_options,
+                        backend=PyPdfiumDocumentBackend
+                    )
+                }
+            )
+            print("[FallbackOCR] Khởi tạo IBM Docling thành công trên GPU!")
+        except Exception as e:
+            print(f"[FallbackOCR] Lỗi khi khởi tạo IBM Docling: {e}")
+            raise e
+    return _converter
+
 
 class FallbackOCRPDFLoader:
     def __init__(self, file_path: str, cache_dir: str = None):
         self.file_path = file_path
-        if cache_dir is None:
-            # Thư mục cache mặc định nằm trong thư mục gốc của dự án: .cache/easyocr
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            project_dir = os.path.dirname(os.path.dirname(current_dir))
-            self.cache_dir = os.path.join(project_dir, ".cache", "easyocr")
-        else:
-            self.cache_dir = cache_dir
-
-    def _ensure_models_downloaded(self):
-        """Đảm bảo các file model đã được tải về ổ D trước khi khởi tạo EasyOCR."""
-        os.makedirs(self.cache_dir, exist_ok=True)
-        models = {
-            "craft_mlt_25k.zip": "https://github.com/JaidedAI/EasyOCR/releases/download/pre-v1.1.6/craft_mlt_25k.zip",
-            "latin_g2.zip": "https://github.com/JaidedAI/EasyOCR/releases/download/v1.3/latin_g2.zip"
-        }
-        for name, url in models.items():
-            dest_zip = os.path.join(self.cache_dir, name)
-            actual_pth = os.path.join(self.cache_dir, name.replace(".zip", ".pth"))
-            
-            if not os.path.exists(actual_pth):
-                print(f"[FallbackOCR] Đang tự động tải mô hình {name}...")
-                try:
-                    req = urllib.request.Request(
-                        url,
-                        headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
-                    )
-                    with urllib.request.urlopen(req) as response, open(dest_zip, 'wb') as out_file:
-                        out_file.write(response.read())
-                    
-                    # Giải nén lấy file .pth
-                    with zipfile.ZipFile(dest_zip, 'r') as zip_ref:
-                        zip_ref.extractall(self.cache_dir)
-                    os.remove(dest_zip)
-                    print(f"[FallbackOCR] Tải và giải nén thành công {name}.")
-                except Exception as e:
-                    print(f"[FallbackOCR] Lỗi khi tải mô hình {name}: {e}")
-                    # Xóa file zip lỗi nếu có
-                    if os.path.exists(dest_zip):
-                        os.remove(dest_zip)
-                    raise e
-
-    def _clean_ocr_results(self, results: list) -> str:
-        """
-        Nối các đoạn văn bản OCR lại với nhau một cách thông minh.
-        Nếu dòng hiện tại không kết thúc bằng các dấu câu (như ., ?, !, :),
-        ta sẽ nối với dòng tiếp theo bằng khoảng trắng thay vì dấu xuống dòng.
-        """
-        if not results:
-            return ""
-            
-        cleaned_text = []
-        for i, text in enumerate(results):
-            text = text.strip()
-            if not text:
-                continue
-                
-            is_hyphenated = False
-            if text.endswith('-') and len(text) > 1:
-                text = text[:-1]
-                is_hyphenated = True
-                
-            cleaned_text.append(text)
-            
-            if i < len(results) - 1:
-                if is_hyphenated:
-                    # Không thêm gì vì từ bị gạch ngang ngắt dòng
-                    continue
-                elif text[-1] in {'.', '?', '!', ':'}:
-                    cleaned_text.append("\n")
-                else:
-                    cleaned_text.append(" ")
-                    
-        joined = "".join(cleaned_text)
-        # Thay thế nhiều dấu xuống dòng liên tiếp bằng tối đa 2 dấu xuống dòng
-        joined = re.sub(r'\n\s*\n', '\n\n', joined)
-        return joined
+        # Keeping parameter for backward compatibility
+        self.cache_dir = cache_dir
 
     def load(self):
-        # 1. Thử đọc bằng PyPDFLoader trước
+        # 1. Try reading with PyPDFLoader first
         print(f"[FallbackOCR] Thử đọc bằng PyPDFLoader cho: {self.file_path}")
         pypdf_loader = PyPDFLoader(self.file_path)
         try:
@@ -103,67 +72,49 @@ class FallbackOCRPDFLoader:
 
         total_text_len = sum(len(doc.page_content.strip()) for doc in docs)
         
-        # Nếu trích xuất được lượng văn bản đáng kể (> 30 ký tự), giữ nguyên kết quả
+        # If successfully extracted digital text (> 30 characters), return it
         if docs and total_text_len > 30:
             print(f"[FallbackOCR] Đã trích xuất thành công {total_text_len} ký tự dạng kỹ thuật số. Giữ nguyên kết quả.")
             return docs
             
-        # 2. Ngược lại, thực hiện OCR fallback sử dụng EasyOCR
-        print(f"[FallbackOCR] Phát hiện tài liệu không có văn bản hoặc văn bản quá ngắn ({total_text_len} ký tự). Bắt đầu nhận diện OCR...")
+        # 2. Otherwise, fall back to OCR using IBM Docling
+        print(f"[FallbackOCR] Phát hiện tài liệu không có văn bản hoặc văn bản quá ngắn ({total_text_len} ký tự). Bắt đầu nhận diện OCR bằng IBM Docling...")
         
-        # Đảm bảo các mô hình đã tải xuống
-        self._ensure_models_downloaded()
-        
-        # Khởi tạo EasyOCR Reader ngoại tuyến
-        print("[FallbackOCR] Khởi tạo EasyOCR Reader ở chế độ offline...")
-        reader = easyocr.Reader(
-            ['vi', 'en'],
-            model_storage_directory=self.cache_dir,
-            download_enabled=False
-        )
-        
-        ocr_docs = []
         try:
-            # Mở file PDF bằng PyMuPDF (fitz)
-            pdf_doc = fitz.open(self.file_path)
-            for page_num, page in enumerate(pdf_doc):
-                print(f"[FallbackOCR] Đang chạy OCR trang {page_num + 1}/{len(pdf_doc)}...")
-                # Kết xuất trang thành ảnh PNG với DPI cao (300 DPI) để tăng độ nét chữ
-                pix = page.get_pixmap(dpi=300)
-                img_bytes = pix.tobytes("png")
-                
-                # Chuyển đổi thành ảnh PIL và chuyển sang numpy array
-                img = Image.open(io.BytesIO(img_bytes))
-                img_np = np.array(img)
-                
-                # Nhận diện chữ bằng EasyOCR (bật paragraph=True để tự động gộp các cụm chữ gần nhau)
-                results = reader.readtext(img_np, detail=0, paragraph=True)
-                page_content = self._clean_ocr_results(results)
-                
-                # Tạo đối tượng Document chuẩn của LangChain
-                doc = Document(
-                    page_content=page_content,
-                    metadata={
-                        "source": self.file_path,
-                        "page": page_num
-                    }
-                )
-                ocr_docs.append(doc)
+            converter = get_docling_converter()
+            print(f"[FallbackOCR] Đang chạy nhận dạng layout và cấu trúc cho: {self.file_path}")
             
-            pdf_doc.close()
-            print(f"[FallbackOCR] Đã hoàn thành OCR cho {len(ocr_docs)} trang.")
-            return ocr_docs
+            # Convert PDF using Docling
+            result = converter.convert(self.file_path)
+            
+            # Export the entire document to structured Markdown
+            markdown_content = result.document.export_to_markdown()
+            
+            # Create a LangChain Document with the structured Markdown
+            doc = Document(
+                page_content=markdown_content,
+                metadata={
+                    "source": self.file_path,
+                    "page": 0
+                }
+            )
+            
+            print(f"[FallbackOCR] Đã hoàn thành OCR và trích xuất cấu trúc bằng Docling thành công!")
+            return [doc]
         except Exception as e:
-            print(f"[FallbackOCR] Gặp lỗi nghiêm trọng trong quá trình xử lý OCR: {e}")
-            # Trả về kết quả PyPDFLoader ban đầu hoặc danh sách rỗng thay vì làm sập pipeline
+            print(f"[FallbackOCR] Gặp lỗi nghiêm trọng trong quá trình xử lý OCR bằng Docling: {e}")
+            import traceback
+            traceback.print_exc()
+            # Return original PyPDFLoader results or empty list instead of crashing
             return docs
+
 
 def get_pdf_loader(file_path: str, method: str = "pypdf"):
     """
-    Trả về đối tượng loader tương ứng với phương pháp được chọn.
+    Returns the loader instance based on selected method.
     
-    Hỗ trợ các phương pháp:
-    - "pypdf": Sử dụng FallbackOCRPDFLoader tự động chuyển sang OCR nếu gặp file scan.
+    Supported methods:
+    - "pypdf": Uses FallbackOCRPDFLoader which automatically switches to Docling OCR for scanned files.
     """
     method = method.lower().strip()
     if method == "pypdf":

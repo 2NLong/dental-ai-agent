@@ -19,7 +19,7 @@ def get_text_splitter(
         return RecursiveCharacterTextSplitter(
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap,
-            separators=["\n\n", ". ", "\n", " ", ""]
+            separators=["\n\n", "\n", ". ", "? ", "! ", " ", ""]
         )
     elif method == "semantic":
         if embeddings is None:
