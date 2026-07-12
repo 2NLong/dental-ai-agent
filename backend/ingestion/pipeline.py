@@ -46,7 +46,7 @@ def init_qdrant_collection():
 def run_ingestion_pipeline(
     pdf_folder_path: str,
     loader_method: str = "pypdf",
-    splitter_method: str = "recursive",
+    splitter_method: str = "markdown",
     chunk_size: int = 1000,
     chunk_overlap: int = 200
 ):
@@ -118,7 +118,7 @@ def export_ingestion_to_json(
     pdf_folder_path: str,
     output_json_path: str,
     loader_method: str = "pypdf",
-    splitter_method: str = "recursive",
+    splitter_method: str = "markdown",
     chunk_size: int = 1000,
     chunk_overlap: int = 200
 ):
@@ -232,7 +232,7 @@ if __name__ == "__main__":
     run_ingestion_pipeline(
         pdf_folder_path=raw_pdfs_path,
         loader_method="pypdf",
-        splitter_method="recursive",
+        splitter_method="markdown",
         chunk_size=1000,
         chunk_overlap=200
     )
@@ -243,7 +243,7 @@ if __name__ == "__main__":
     #     pdf_folder_path=raw_pdfs_path,
     #     output_json_path=export_json_path,
     #     loader_method="pypdf",
-    #     splitter_method="recursive",
+    #     splitter_method="markdown",
     #     chunk_size=1000,
     #     chunk_overlap=200
     # )
