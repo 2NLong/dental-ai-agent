@@ -6,7 +6,7 @@ url = "http://127.0.0.1:8000/api/v1/chat/query"
 
 # Các câu hỏi mẫu để test
 questions = [
-    "cách sử dụng chỉ nha khoa đúng cách"
+    " Tỷ lệ viêm nướu của cả nước?"
 ]
 
 for idx, q in enumerate(questions):

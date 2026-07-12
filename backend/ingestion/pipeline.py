@@ -78,6 +78,15 @@ def run_ingestion_pipeline(
                 if not documents:
                     print(f"Bỏ qua file {file_name} vì không trích xuất được nội dung text.")
                     continue
+                
+                # Làm phong phú metadata trước khi chia nhỏ (splitter sẽ tự sao chép sang các chunk)
+                file_basename = os.path.basename(file_path)
+                clean_title = os.path.splitext(file_basename)[0]
+                
+                for doc in documents:
+                    doc.metadata["file_name"] = file_basename
+                    doc.metadata["title"] = clean_title
+                    doc.metadata["source_type"] = "pdf"
                     
                 # 2. Cắt nhỏ tài liệu
                 split_docs = text_splitter.split_documents(documents)
@@ -137,6 +146,15 @@ def export_ingestion_to_json(
                 documents = loader.load()
                 if not documents:
                     continue
+                
+                # Làm phong phú metadata trước khi chia nhỏ
+                file_basename = os.path.basename(file_path)
+                clean_title = os.path.splitext(file_basename)[0]
+                
+                for doc in documents:
+                    doc.metadata["file_name"] = file_basename
+                    doc.metadata["title"] = clean_title
+                    doc.metadata["source_type"] = "pdf"
                     
                 split_docs = text_splitter.split_documents(documents)
                 split_docs = [doc for doc in split_docs if len(doc.page_content.strip()) > 10]
