@@ -25,3 +25,8 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+
+# Cache and local storage
+.cache/
+data/qdrant_storage/
+data/processed/qdrant_local/
